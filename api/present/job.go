@@ -13,7 +13,11 @@ func Job(dbJob db.SavedJob, job atc.JobConfig, groups atc.GroupConfigs, finished
 
 	req, err := generator.CreateRequest(
 		web.GetJob,
-		rata.Params{"job": job.Name, "pipeline_name": dbJob.PipelineName},
+		rata.Params{
+			"job":           job.Name,
+			"pipeline_name": dbJob.PipelineName,
+			"team_name":     dbJob.TeamName,
+		},
 		nil,
 	)
 	if err != nil {

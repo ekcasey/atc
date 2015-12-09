@@ -62,6 +62,7 @@ var _ = Describe("Builds API", func() {
 						Name:         "1",
 						JobName:      "",
 						PipelineName: "",
+						TeamName:     "some-team",
 						Status:       db.StatusStarted,
 						StartTime:    time.Unix(1, 0),
 						EndTime:      time.Unix(100, 0),
@@ -110,7 +111,8 @@ var _ = Describe("Builds API", func() {
 							"url": "/builds/42",
 							"api_url": "/api/v1/builds/42",
 							"start_time": 1,
-							"end_time": 100
+							"end_time": 100,
+							"team_name": "some-team"
 						}`))
 
 					})
@@ -125,6 +127,7 @@ var _ = Describe("Builds API", func() {
 							Name:         "1",
 							JobName:      "",
 							PipelineName: "",
+							TeamName:     "some-team",
 							Status:       db.StatusStarted,
 							StartTime:    time.Unix(1, 0),
 							EndTime:      time.Unix(100, 0),
@@ -225,6 +228,7 @@ var _ = Describe("Builds API", func() {
 						Name:         "1",
 						JobName:      "job1",
 						PipelineName: "pipeline1",
+						TeamName:     "some-team",
 						Status:       db.StatusSucceeded,
 						StartTime:    time.Unix(1, 0),
 						EndTime:      time.Unix(100, 0),
@@ -249,7 +253,8 @@ var _ = Describe("Builds API", func() {
 						"status": "succeeded",
 						"job_name": "job1",
 						"pipeline_name": "pipeline1",
-						"url": "/pipelines/pipeline1/jobs/job1/builds/1",
+						"team_name": "some-team",
+						"url": "/teams/some-team/pipelines/pipeline1/jobs/job1/builds/1",
 						"api_url": "/api/v1/builds/1",
 						"start_time": 1,
 						"end_time": 100
@@ -452,6 +457,7 @@ var _ = Describe("Builds API", func() {
 						Name:         "2",
 						JobName:      "job2",
 						PipelineName: "pipeline2",
+						TeamName:     "some-team",
 						Status:       db.StatusStarted,
 						StartTime:    time.Unix(1, 0),
 						EndTime:      time.Unix(100, 0),
@@ -461,6 +467,7 @@ var _ = Describe("Builds API", func() {
 						Name:         "1",
 						JobName:      "job1",
 						PipelineName: "pipeline1",
+						TeamName:     "some-team",
 						Status:       db.StatusSucceeded,
 						StartTime:    time.Unix(101, 0),
 						EndTime:      time.Unix(200, 0),
@@ -482,8 +489,9 @@ var _ = Describe("Builds API", func() {
 						"name": "2",
 						"job_name": "job2",
 						"pipeline_name": "pipeline2",
+						"team_name": "some-team",
 						"status": "started",
-						"url": "/pipelines/pipeline2/jobs/job2/builds/2",
+						"url": "/teams/some-team/pipelines/pipeline2/jobs/job2/builds/2",
 						"api_url": "/api/v1/builds/3",
 						"start_time": 1,
 						"end_time": 100
@@ -493,8 +501,9 @@ var _ = Describe("Builds API", func() {
 						"name": "1",
 						"job_name": "job1",
 						"pipeline_name": "pipeline1",
+						"team_name": "some-team",
 						"status": "succeeded",
-						"url": "/pipelines/pipeline1/jobs/job1/builds/1",
+						"url": "/teams/some-team/pipelines/pipeline1/jobs/job1/builds/1",
 						"api_url": "/api/v1/builds/1",
 						"start_time": 101,
 						"end_time": 200

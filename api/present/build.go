@@ -20,7 +20,12 @@ func Build(build db.Build) atc.Build {
 	} else {
 		reqURL, err = web.Routes.CreatePathForRoute(
 			web.GetBuild,
-			rata.Params{"job": build.JobName, "build": build.Name, "pipeline_name": build.PipelineName},
+			rata.Params{
+				"job":           build.JobName,
+				"build":         build.Name,
+				"pipeline_name": build.PipelineName,
+				"team_name":     build.TeamName,
+			},
 		)
 	}
 	if err != nil {
@@ -38,6 +43,7 @@ func Build(build db.Build) atc.Build {
 		Status:       string(build.Status),
 		JobName:      build.JobName,
 		PipelineName: build.PipelineName,
+		TeamName:     build.TeamName,
 		URL:          reqURL,
 		APIURL:       apiURL,
 	}

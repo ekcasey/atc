@@ -12,7 +12,11 @@ func Resource(resource atc.ResourceConfig, groups atc.GroupConfigs, dbResource d
 
 	req, err := generator.CreateRequest(
 		web.GetResource,
-		rata.Params{"resource": resource.Name, "pipeline_name": dbResource.PipelineName},
+		rata.Params{
+			"resource":      resource.Name,
+			"pipeline_name": dbResource.PipelineName,
+			"team_name":     dbResource.TeamName,
+		},
 		nil,
 	)
 	if err != nil {

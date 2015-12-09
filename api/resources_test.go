@@ -22,19 +22,19 @@ var _ = Describe("Resources API", func() {
 		pipelineDBFactory.BuildWithTeamNameAndNameReturns(fakePipelineDB, nil)
 	})
 
-	Describe("GET /api/v1/pipelines/:pipeline_name/resources", func() {
+	Describe("GET /api/v1/teams/:team_name/pipelines/:pipeline_name/resources", func() {
 		var response *http.Response
 
 		JustBeforeEach(func() {
 			var err error
 
-			response, err = client.Get(server.URL + "/api/v1/pipelines/a-pipeline/resources")
+			response, err = client.Get(server.URL + "/api/v1/teams/some-team/pipelines/a-pipeline/resources")
 			Expect(err).NotTo(HaveOccurred())
 
 			Expect(pipelineDBFactory.BuildWithTeamNameAndNameCallCount()).To(Equal(1))
 			teamName, pipelineName := pipelineDBFactory.BuildWithTeamNameAndNameArgsForCall(0)
 			Expect(pipelineName).To(Equal("a-pipeline"))
-			Expect(teamName).To(Equal(atc.DefaultTeamName))
+			Expect(teamName).To(Equal("some-team"))
 		})
 
 		Context("when getting the resource config succeeds", func() {
@@ -67,6 +67,7 @@ var _ = Describe("Resources API", func() {
 								ID:           1,
 								CheckError:   errors.New("sup"),
 								PipelineName: "a-pipeline",
+								TeamName:     "some-team",
 								Resource: db.Resource{
 									Name: name,
 								},
@@ -76,6 +77,7 @@ var _ = Describe("Resources API", func() {
 								ID:           2,
 								Paused:       true,
 								PipelineName: "a-pipeline",
+								TeamName:     "some-team",
 								Resource: db.Resource{
 									Name: name,
 								},
@@ -103,13 +105,13 @@ var _ = Describe("Resources API", func() {
 								"type": "type-1",
 								"groups": ["group-1", "group-2"],
 								"paused": true,
-								"url": "/pipelines/a-pipeline/resources/resource-1"
+								"url": "/teams/some-team/pipelines/a-pipeline/resources/resource-1"
 							},
 							{
 								"name": "resource-2",
 								"type": "type-2",
 								"groups": ["group-2"],
-								"url": "/pipelines/a-pipeline/resources/resource-2",
+								"url": "/teams/some-team/pipelines/a-pipeline/resources/resource-2",
 								"failing_to_check": true,
 								"check_error": "sup"
 							},
@@ -118,7 +120,7 @@ var _ = Describe("Resources API", func() {
 								"type": "type-3",
 								"groups": [],
 								"paused": true,
-								"url": "/pipelines/a-pipeline/resources/resource-3"
+								"url": "/teams/some-team/pipelines/a-pipeline/resources/resource-3"
 							}
 						]`))
 					})
@@ -139,13 +141,13 @@ var _ = Describe("Resources API", func() {
 								"type": "type-1",
 								"groups": ["group-1", "group-2"],
 								"paused": true,
-								"url": "/pipelines/a-pipeline/resources/resource-1"
+								"url": "/teams/some-team/pipelines/a-pipeline/resources/resource-1"
 							},
 							{
 								"name": "resource-2",
 								"type": "type-2",
 								"groups": ["group-2"],
-								"url": "/pipelines/a-pipeline/resources/resource-2",
+								"url": "/teams/some-team/pipelines/a-pipeline/resources/resource-2",
 								"failing_to_check": true
 							},
 							{
@@ -153,7 +155,7 @@ var _ = Describe("Resources API", func() {
 								"type": "type-3",
 								"groups": [],
 								"paused": true,
-								"url": "/pipelines/a-pipeline/resources/resource-3"
+								"url": "/teams/some-team/pipelines/a-pipeline/resources/resource-3"
 							}
 						]`))
 
@@ -197,7 +199,7 @@ var _ = Describe("Resources API", func() {
 		})
 	})
 
-	Describe("GET /api/v1/pipelines/:pipeline_name/resources/:resource_name", func() {
+	Describe("GET /api/v1/teams/:team_name/pipelines/:pipeline_name/resources/:resource_name", func() {
 		var response *http.Response
 		var resourceName string
 		BeforeEach(func() {
@@ -207,7 +209,7 @@ var _ = Describe("Resources API", func() {
 		JustBeforeEach(func() {
 			var err error
 
-			request, err := http.NewRequest("GET", fmt.Sprintf("%s/api/v1/pipelines/a-pipeline/resources/%s", server.URL, resourceName), nil)
+			request, err := http.NewRequest("GET", fmt.Sprintf("%s/api/v1/teams/some-team/pipelines/a-pipeline/resources/%s", server.URL, resourceName), nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			response, err = client.Do(request)
@@ -293,6 +295,7 @@ var _ = Describe("Resources API", func() {
 							CheckError:   errors.New("sup"),
 							Paused:       true,
 							PipelineName: "a-pipeline",
+							TeamName:     "some-team",
 							Resource: db.Resource{
 								Name: "resource-1",
 							},
@@ -313,7 +316,7 @@ var _ = Describe("Resources API", func() {
 								"name": "resource-1",
 								"type": "type-1",
 								"groups": ["group-1", "group-2"],
-								"url": "/pipelines/a-pipeline/resources/resource-1",
+								"url": "/teams/some-team/pipelines/a-pipeline/resources/resource-1",
 								"paused": true,
 								"failing_to_check": true
 							}`))
@@ -334,7 +337,7 @@ var _ = Describe("Resources API", func() {
 								"name": "resource-1",
 								"type": "type-1",
 								"groups": ["group-1", "group-2"],
-								"url": "/pipelines/a-pipeline/resources/resource-1",
+								"url": "/teams/some-team/pipelines/a-pipeline/resources/resource-1",
 								"paused": true,
 								"failing_to_check": true,
 								"check_error": "sup"
@@ -347,13 +350,13 @@ var _ = Describe("Resources API", func() {
 
 	})
 
-	Describe("PUT /api/v1/pipelines/:pipeline_name/resources/:resource_name/pause", func() {
+	Describe("PUT /api/v1/teams/:team_name/pipelines/:pipeline_name/resources/:resource_name/pause", func() {
 		var response *http.Response
 
 		JustBeforeEach(func() {
 			var err error
 
-			request, err := http.NewRequest("PUT", server.URL+"/api/v1/pipelines/a-pipeline/resources/resource-name/pause", nil)
+			request, err := http.NewRequest("PUT", server.URL+"/api/v1/teams/some-team/pipelines/a-pipeline/resources/resource-name/pause", nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			response, err = client.Do(request)
@@ -369,7 +372,7 @@ var _ = Describe("Resources API", func() {
 				Expect(pipelineDBFactory.BuildWithTeamNameAndNameCallCount()).To(Equal(1))
 				teamName, pipelineName := pipelineDBFactory.BuildWithTeamNameAndNameArgsForCall(0)
 				Expect(pipelineName).To(Equal("a-pipeline"))
-				Expect(teamName).To(Equal(atc.DefaultTeamName))
+				Expect(teamName).To(Equal("some-team"))
 			})
 
 			Context("when pausing the resource succeeds", func() {
@@ -408,13 +411,13 @@ var _ = Describe("Resources API", func() {
 		})
 	})
 
-	Describe("PUT /api/v1/pipelines/:pipeline_name/resources/:resource_name/unpause", func() {
+	Describe("PUT /api/v1/teams/:team_name/pipelines/:pipeline_name/resources/:resource_name/unpause", func() {
 		var response *http.Response
 
 		JustBeforeEach(func() {
 			var err error
 
-			request, err := http.NewRequest("PUT", server.URL+"/api/v1/pipelines/a-pipeline/resources/resource-name/unpause", nil)
+			request, err := http.NewRequest("PUT", server.URL+"/api/v1/teams/some-team/pipelines/a-pipeline/resources/resource-name/unpause", nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			response, err = client.Do(request)
@@ -430,7 +433,7 @@ var _ = Describe("Resources API", func() {
 				Expect(pipelineDBFactory.BuildWithTeamNameAndNameCallCount()).To(Equal(1))
 				teamName, pipelineName := pipelineDBFactory.BuildWithTeamNameAndNameArgsForCall(0)
 				Expect(pipelineName).To(Equal("a-pipeline"))
-				Expect(teamName).To(Equal(atc.DefaultTeamName))
+				Expect(teamName).To(Equal("some-team"))
 			})
 
 			Context("when unpausing the resource succeeds", func() {

@@ -10,7 +10,6 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/concourse/atc"
 	"github.com/concourse/atc/db"
 	dbfakes "github.com/concourse/atc/db/fakes"
 )
@@ -23,14 +22,14 @@ var _ = Describe("Versions API", func() {
 		pipelineDBFactory.BuildWithTeamNameAndNameReturns(pipelineDB, nil)
 	})
 
-	Describe("GET /api/v1/pipelines/:pipeline_name/resources/:resource_name/versions", func() {
+	Describe("GET /api/v1/teams/:team_name/pipelines/:pipeline_name/resources/:resource_name/versions", func() {
 		var response *http.Response
 		var queryParams string
 
 		JustBeforeEach(func() {
 			var err error
 
-			request, err := http.NewRequest("GET", server.URL+"/api/v1/pipelines/a-pipeline/resources/some-resource/versions"+queryParams, nil)
+			request, err := http.NewRequest("GET", server.URL+"/api/v1/teams/some-team/pipelines/a-pipeline/resources/some-resource/versions"+queryParams, nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			response, err = client.Do(request)
@@ -172,8 +171,8 @@ var _ = Describe("Versions API", func() {
 
 				It("returns Link headers per rfc5988", func() {
 					Expect(response.Header["Link"]).To(ConsistOf([]string{
-						fmt.Sprintf(`<%s/api/v1/pipelines/some-pipeline/resources/some-resource/versions?until=4&limit=2>; rel="previous"`, externalURL),
-						fmt.Sprintf(`<%s/api/v1/pipelines/some-pipeline/resources/some-resource/versions?since=2&limit=2>; rel="next"`, externalURL),
+						fmt.Sprintf(`<%s/api/v1/teams/some-team/pipelines/some-pipeline/resources/some-resource/versions?until=4&limit=2>; rel="previous"`, externalURL),
+						fmt.Sprintf(`<%s/api/v1/teams/some-team/pipelines/some-pipeline/resources/some-resource/versions?since=2&limit=2>; rel="next"`, externalURL),
 					}))
 				})
 			})
@@ -200,13 +199,13 @@ var _ = Describe("Versions API", func() {
 		})
 	})
 
-	Describe("PUT /api/v1/pipelines/:pipeline_name/resources/:resource_name/versions/:resource_version_id/enable", func() {
+	Describe("PUT /api/v1/teams/:team_name/pipelines/:pipeline_name/resources/:resource_name/versions/:resource_version_id/enable", func() {
 		var response *http.Response
 
 		JustBeforeEach(func() {
 			var err error
 
-			request, err := http.NewRequest("PUT", server.URL+"/api/v1/pipelines/a-pipeline/resources/resource-name/versions/42/enable", nil)
+			request, err := http.NewRequest("PUT", server.URL+"/api/v1/teams/some-team/pipelines/a-pipeline/resources/resource-name/versions/42/enable", nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			response, err = client.Do(request)
@@ -223,7 +222,7 @@ var _ = Describe("Versions API", func() {
 				Expect(pipelineDBFactory.BuildWithTeamNameAndNameCallCount()).To(Equal(1))
 				teamName, pipelineName := pipelineDBFactory.BuildWithTeamNameAndNameArgsForCall(0)
 				Expect(pipelineName).To(Equal("a-pipeline"))
-				Expect(teamName).To(Equal(atc.DefaultTeamName))
+				Expect(teamName).To(Equal("some-team"))
 			})
 
 			Context("when enabling the resource succeeds", func() {
@@ -262,13 +261,13 @@ var _ = Describe("Versions API", func() {
 		})
 	})
 
-	Describe("PUT /api/v1/pipelines/:pipeline_name/resources/:resource_name/versions/:resource_version_id/disable", func() {
+	Describe("PUT /api/v1/teams/:team_name/pipelines/:pipeline_name/resources/:resource_name/versions/:resource_version_id/disable", func() {
 		var response *http.Response
 
 		JustBeforeEach(func() {
 			var err error
 
-			request, err := http.NewRequest("PUT", server.URL+"/api/v1/pipelines/a-pipeline/resources/resource-name/versions/42/disable", nil)
+			request, err := http.NewRequest("PUT", server.URL+"/api/v1/teams/some-team/pipelines/a-pipeline/resources/resource-name/versions/42/disable", nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			response, err = client.Do(request)
@@ -284,7 +283,7 @@ var _ = Describe("Versions API", func() {
 				Expect(pipelineDBFactory.BuildWithTeamNameAndNameCallCount()).To(Equal(1))
 				teamName, pipelineName := pipelineDBFactory.BuildWithTeamNameAndNameArgsForCall(0)
 				Expect(pipelineName).To(Equal("a-pipeline"))
-				Expect(teamName).To(Equal(atc.DefaultTeamName))
+				Expect(teamName).To(Equal("some-team"))
 			})
 
 			Context("when enabling the resource succeeds", func() {
@@ -323,14 +322,14 @@ var _ = Describe("Versions API", func() {
 		})
 	})
 
-	Describe("GET /api/v1/pipelines/:pipeline_name/resources/:resource_name/versions/:resource_version_id/input_to", func() {
+	Describe("GET /api/v1/teams/:team_name/pipelines/:pipeline_name/resources/:resource_name/versions/:resource_version_id/input_to", func() {
 		var response *http.Response
 		var stringVersionID string
 
 		JustBeforeEach(func() {
 			var err error
 
-			request, err := http.NewRequest("GET", server.URL+"/api/v1/pipelines/a-pipeline/resources/some-resource/versions/"+stringVersionID+"/input_to", nil)
+			request, err := http.NewRequest("GET", server.URL+"/api/v1/teams/some-team/pipelines/a-pipeline/resources/some-resource/versions/"+stringVersionID+"/input_to", nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			response, err = client.Do(request)
@@ -356,6 +355,7 @@ var _ = Describe("Versions API", func() {
 
 						JobName:      "some-job",
 						PipelineName: "a-pipeline",
+						TeamName:     "some-team",
 
 						StartTime: time.Unix(1, 0),
 						EndTime:   time.Unix(100, 0),
@@ -367,6 +367,7 @@ var _ = Describe("Versions API", func() {
 
 						JobName:      "some-job",
 						PipelineName: "a-pipeline",
+						TeamName:     "some-team",
 
 						StartTime: time.Unix(200, 0),
 						EndTime:   time.Unix(300, 0),
@@ -392,8 +393,9 @@ var _ = Describe("Versions API", func() {
 						"name": "5",
 						"status": "succeeded",
 						"job_name": "some-job",
-						"url": "/pipelines/a-pipeline/jobs/some-job/builds/5",
+						"url": "/teams/some-team/pipelines/a-pipeline/jobs/some-job/builds/5",
 						"api_url": "/api/v1/builds/1024",
+						"team_name": "some-team",
 						"pipeline_name": "a-pipeline",
 						"start_time": 1,
 						"end_time": 100
@@ -403,8 +405,9 @@ var _ = Describe("Versions API", func() {
 						"name": "6",
 						"status": "succeeded",
 						"job_name": "some-job",
-						"url": "/pipelines/a-pipeline/jobs/some-job/builds/6",
+						"url": "/teams/some-team/pipelines/a-pipeline/jobs/some-job/builds/6",
 						"api_url": "/api/v1/builds/1025",
+						"team_name": "some-team",
 						"pipeline_name": "a-pipeline",
 						"start_time": 200,
 						"end_time": 300
@@ -437,14 +440,14 @@ var _ = Describe("Versions API", func() {
 		})
 	})
 
-	Describe("GET /api/v1/pipelines/:pipeline_name/resources/:resource_name/versions/:resource_version_id/output_of", func() {
+	Describe("GET /api/v1/teams/:team_name/pipelines/:pipeline_name/resources/:resource_name/versions/:resource_version_id/output_of", func() {
 		var response *http.Response
 		var stringVersionID string
 
 		JustBeforeEach(func() {
 			var err error
 
-			request, err := http.NewRequest("GET", server.URL+"/api/v1/pipelines/a-pipeline/resources/some-resource/versions/"+stringVersionID+"/output_of", nil)
+			request, err := http.NewRequest("GET", server.URL+"/api/v1/teams/some-team/pipelines/a-pipeline/resources/some-resource/versions/"+stringVersionID+"/output_of", nil)
 			Expect(err).NotTo(HaveOccurred())
 
 			response, err = client.Do(request)
@@ -469,6 +472,7 @@ var _ = Describe("Versions API", func() {
 						Status: db.StatusSucceeded,
 
 						JobName:      "some-job",
+						TeamName:     "some-team",
 						PipelineName: "a-pipeline",
 
 						StartTime: time.Unix(1, 0),
@@ -480,6 +484,7 @@ var _ = Describe("Versions API", func() {
 						Status: db.StatusSucceeded,
 
 						JobName:      "some-job",
+						TeamName:     "some-team",
 						PipelineName: "a-pipeline",
 
 						StartTime: time.Unix(200, 0),
@@ -506,8 +511,9 @@ var _ = Describe("Versions API", func() {
 						"name": "5",
 						"status": "succeeded",
 						"job_name": "some-job",
-						"url": "/pipelines/a-pipeline/jobs/some-job/builds/5",
+						"url": "/teams/some-team/pipelines/a-pipeline/jobs/some-job/builds/5",
 						"api_url": "/api/v1/builds/1024",
+						"team_name": "some-team",
 						"pipeline_name": "a-pipeline",
 						"start_time": 1,
 						"end_time": 100
@@ -517,8 +523,9 @@ var _ = Describe("Versions API", func() {
 						"name": "6",
 						"status": "succeeded",
 						"job_name": "some-job",
-						"url": "/pipelines/a-pipeline/jobs/some-job/builds/6",
+						"url": "/teams/some-team/pipelines/a-pipeline/jobs/some-job/builds/6",
 						"api_url": "/api/v1/builds/1025",
+						"team_name": "some-team",
 						"pipeline_name": "a-pipeline",
 						"start_time": 200,
 						"end_time": 300
