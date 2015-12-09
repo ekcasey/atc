@@ -237,12 +237,9 @@ func (db *SQLDB) GetVolumeTTL(handle string) (time.Duration, error) {
 
 func (db *SQLDB) GetPipelineByTeamNameAndName(teamName string, pipelineName string) (SavedPipeline, error) {
 	row := db.conn.QueryRow(`
-		SELECT id, name, config, version, paused, team_id
-		FROM pipelines
-		WHERE name = $1
-		AND team_id = (
-				SELECT id FROM teams WHERE name = $2
-			)
+		SELECT p.id, p.name, p.config, p.version, p.paused, p.team_id, t.name as team_name
+		FROM pipelines p, teams t
+		WHERE p.team_id = t.id and p.name = $1 AND t.name = $2
 	`, pipelineName, teamName)
 
 	return scanPipeline(row)
@@ -250,8 +247,9 @@ func (db *SQLDB) GetPipelineByTeamNameAndName(teamName string, pipelineName stri
 
 func (db *SQLDB) GetAllActivePipelines() ([]SavedPipeline, error) {
 	rows, err := db.conn.Query(`
-		SELECT id, name, config, version, paused, team_id
-		FROM pipelines
+		SELECT p.id, p.name, p.config, p.version, p.paused, p.team_id, t.name as team_name
+		FROM pipelines p
+		LEFT OUTER JOIN teams t ON p.team_id = t.id
 		ORDER BY ordering
 	`)
 	if err != nil {
@@ -1614,8 +1612,9 @@ func scanPipeline(rows scannable) (SavedPipeline, error) {
 	var version int
 	var paused bool
 	var teamID int
+	var teamName string
 
-	err := rows.Scan(&id, &name, &configBlob, &version, &paused, &teamID)
+	err := rows.Scan(&id, &name, &configBlob, &version, &paused, &teamID, &teamName)
 	if err != nil {
 		return SavedPipeline{}, err
 	}
@@ -1627,9 +1626,10 @@ func scanPipeline(rows scannable) (SavedPipeline, error) {
 	}
 
 	return SavedPipeline{
-		ID:     id,
-		Paused: paused,
-		TeamID: teamID,
+		ID:       id,
+		Paused:   paused,
+		TeamID:   teamID,
+		TeamName: teamName,
 		Pipeline: Pipeline{
 			Name:    name,
 			Config:  config,
