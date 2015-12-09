@@ -65,10 +65,12 @@ type FakeBuildsDB struct {
 		result1 []db.Build
 		result2 error
 	}
-	CreateOneOffBuildStub        func() (db.Build, error)
+	CreateOneOffBuildStub        func(teamID int) (db.Build, error)
 	createOneOffBuildMutex       sync.RWMutex
-	createOneOffBuildArgsForCall []struct{}
-	createOneOffBuildReturns     struct {
+	createOneOffBuildArgsForCall []struct {
+		teamID int
+	}
+	createOneOffBuildReturns struct {
 		result1 db.Build
 		result2 error
 	}
@@ -81,6 +83,15 @@ type FakeBuildsDB struct {
 		result1 atc.Config
 		result2 db.ConfigVersion
 		result3 error
+	}
+	GetTeamByNameStub        func(teamName string) (db.SavedTeam, error)
+	getTeamByNameMutex       sync.RWMutex
+	getTeamByNameArgsForCall []struct {
+		teamName string
+	}
+	getTeamByNameReturns struct {
+		result1 db.SavedTeam
+		result2 error
 	}
 }
 
@@ -277,12 +288,14 @@ func (fake *FakeBuildsDB) GetAllBuildsReturns(result1 []db.Build, result2 error)
 	}{result1, result2}
 }
 
-func (fake *FakeBuildsDB) CreateOneOffBuild() (db.Build, error) {
+func (fake *FakeBuildsDB) CreateOneOffBuild(teamID int) (db.Build, error) {
 	fake.createOneOffBuildMutex.Lock()
-	fake.createOneOffBuildArgsForCall = append(fake.createOneOffBuildArgsForCall, struct{}{})
+	fake.createOneOffBuildArgsForCall = append(fake.createOneOffBuildArgsForCall, struct {
+		teamID int
+	}{teamID})
 	fake.createOneOffBuildMutex.Unlock()
 	if fake.CreateOneOffBuildStub != nil {
-		return fake.CreateOneOffBuildStub()
+		return fake.CreateOneOffBuildStub(teamID)
 	} else {
 		return fake.createOneOffBuildReturns.result1, fake.createOneOffBuildReturns.result2
 	}
@@ -292,6 +305,12 @@ func (fake *FakeBuildsDB) CreateOneOffBuildCallCount() int {
 	fake.createOneOffBuildMutex.RLock()
 	defer fake.createOneOffBuildMutex.RUnlock()
 	return len(fake.createOneOffBuildArgsForCall)
+}
+
+func (fake *FakeBuildsDB) CreateOneOffBuildArgsForCall(i int) int {
+	fake.createOneOffBuildMutex.RLock()
+	defer fake.createOneOffBuildMutex.RUnlock()
+	return fake.createOneOffBuildArgsForCall[i].teamID
 }
 
 func (fake *FakeBuildsDB) CreateOneOffBuildReturns(result1 db.Build, result2 error) {
@@ -334,6 +353,39 @@ func (fake *FakeBuildsDB) GetConfigByBuildIDReturns(result1 atc.Config, result2 
 		result2 db.ConfigVersion
 		result3 error
 	}{result1, result2, result3}
+}
+
+func (fake *FakeBuildsDB) GetTeamByName(teamName string) (db.SavedTeam, error) {
+	fake.getTeamByNameMutex.Lock()
+	fake.getTeamByNameArgsForCall = append(fake.getTeamByNameArgsForCall, struct {
+		teamName string
+	}{teamName})
+	fake.getTeamByNameMutex.Unlock()
+	if fake.GetTeamByNameStub != nil {
+		return fake.GetTeamByNameStub(teamName)
+	} else {
+		return fake.getTeamByNameReturns.result1, fake.getTeamByNameReturns.result2
+	}
+}
+
+func (fake *FakeBuildsDB) GetTeamByNameCallCount() int {
+	fake.getTeamByNameMutex.RLock()
+	defer fake.getTeamByNameMutex.RUnlock()
+	return len(fake.getTeamByNameArgsForCall)
+}
+
+func (fake *FakeBuildsDB) GetTeamByNameArgsForCall(i int) string {
+	fake.getTeamByNameMutex.RLock()
+	defer fake.getTeamByNameMutex.RUnlock()
+	return fake.getTeamByNameArgsForCall[i].teamName
+}
+
+func (fake *FakeBuildsDB) GetTeamByNameReturns(result1 db.SavedTeam, result2 error) {
+	fake.GetTeamByNameStub = nil
+	fake.getTeamByNameReturns = struct {
+		result1 db.SavedTeam
+		result2 error
+	}{result1, result2}
 }
 
 var _ buildserver.BuildsDB = new(FakeBuildsDB)

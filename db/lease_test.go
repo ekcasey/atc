@@ -22,6 +22,8 @@ var _ = Describe("Leases", func() {
 		sqlDB             *db.SQLDB
 
 		pipelineDB db.PipelineDB
+
+		team db.SavedTeam
 	)
 
 	BeforeEach(func() {
@@ -58,7 +60,8 @@ var _ = Describe("Leases", func() {
 	}
 
 	BeforeEach(func() {
-		team, err := sqlDB.SaveTeam(db.Team{Name: "some-team"})
+		var err error
+		team, err = sqlDB.SaveTeam(db.Team{Name: "some-team"})
 		Expect(err).NotTo(HaveOccurred())
 		_, err = sqlDB.SaveConfig(team.Name, "pipeline-name", pipelineConfig, 0, db.PipelineUnpaused)
 		Expect(err).NotTo(HaveOccurred())
@@ -251,7 +254,7 @@ var _ = Describe("Leases", func() {
 		var buildID int
 
 		BeforeEach(func() {
-			build, err := sqlDB.CreateOneOffBuild()
+			build, err := sqlDB.CreateOneOffBuild(team.ID)
 			Expect(err).NotTo(HaveOccurred())
 
 			buildID = build.ID
@@ -301,7 +304,7 @@ var _ = Describe("Leases", func() {
 		var buildID int
 
 		BeforeEach(func() {
-			build, err := sqlDB.CreateOneOffBuild()
+			build, err := sqlDB.CreateOneOffBuild(team.ID)
 			Expect(err).NotTo(HaveOccurred())
 
 			buildID = build.ID

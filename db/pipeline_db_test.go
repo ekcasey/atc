@@ -194,7 +194,7 @@ var _ = Describe("PipelineDB", func() {
 			build, err := fetchedPipelineDB.CreateJobBuild("some-job")
 			Expect(err).NotTo(HaveOccurred())
 
-			oneOffBuild, err := sqlDB.CreateOneOffBuild()
+			oneOffBuild, err := sqlDB.CreateOneOffBuild(team.ID)
 			Expect(err).NotTo(HaveOccurred())
 
 			// populate jobs_serial_groups table
@@ -1197,6 +1197,7 @@ var _ = Describe("PipelineDB", func() {
 				Expect(build.Name).To(Equal("1"))
 				Expect(build.Status).To(Equal(db.StatusPending))
 				Expect(build.Scheduled).To(BeFalse())
+				Expect(build.TeamName).To(Equal("some-team"))
 			})
 		})
 
@@ -1731,6 +1732,7 @@ var _ = Describe("PipelineDB", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(found).To(BeTrue())
 					Expect(build.Status).To(Equal(db.StatusErrored))
+					Expect(build.TeamName).To(Equal(team.Name))
 				})
 
 				It("saves off the error for later debugging", func() {
@@ -2178,6 +2180,7 @@ var _ = Describe("PipelineDB", func() {
 				Expect(build1.Name).To(Equal("1"))
 				Expect(build1.Status).To(Equal(db.StatusPending))
 				Expect(build1.Scheduled).To(BeFalse())
+				Expect(build1.TeamName).To(Equal("some-team"))
 			})
 
 			It("can be read back as the same object", func() {
@@ -2218,6 +2221,7 @@ var _ = Describe("PipelineDB", func() {
 					Expect(otherBuild.Name).To(Equal("1"))
 					Expect(otherBuild.Status).To(Equal(db.StatusPending))
 					Expect(otherBuild.Scheduled).To(BeFalse())
+					Expect(otherBuild.TeamName).To(Equal(team.Name))
 				})
 
 				It("does not change the current build", func() {
@@ -2225,6 +2229,7 @@ var _ = Describe("PipelineDB", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(found).To(BeTrue())
 					Expect(currentBuild).To(Equal(build1))
+					Expect(currentBuild.TeamName).To(Equal(team.Name))
 				})
 
 				It("does not change the next pending build", func() {
@@ -2232,6 +2237,7 @@ var _ = Describe("PipelineDB", func() {
 					Expect(err).NotTo(HaveOccurred())
 					Expect(found).To(BeTrue())
 					Expect(nextPending).To(Equal(build1))
+					Expect(nextPending.TeamName).To(Equal(team.Name))
 				})
 
 				It("is not returned in the job's builds", func() {

@@ -39,8 +39,10 @@ type BuildsDB interface {
 
 	GetAllBuilds() ([]db.Build, error)
 
-	CreateOneOffBuild() (db.Build, error)
+	CreateOneOffBuild(teamID int) (db.Build, error)
 	GetConfigByBuildID(buildID int) (atc.Config, db.ConfigVersion, error)
+
+	GetTeamByName(teamName string) (db.SavedTeam, error)
 }
 
 func NewServer(

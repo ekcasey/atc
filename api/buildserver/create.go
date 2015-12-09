@@ -20,7 +20,9 @@ func (s *Server) CreateBuild(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	build, err := s.db.CreateOneOffBuild()
+	//TODO: Test/Fill this in with something better ASAP!
+	team, err := s.db.GetTeamByName(atc.DefaultTeamName)
+	build, err := s.db.CreateOneOffBuild(team.ID)
 
 	if err != nil {
 		hLog.Error("failed-to-create-one-off-build", err)

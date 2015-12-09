@@ -9,9 +9,10 @@ type Pipeline struct {
 }
 
 type SavedPipeline struct {
-	ID     int
-	Paused bool
-	TeamID int
+	ID       int
+	Paused   bool
+	TeamID   int
+	TeamName string
 
 	Pipeline
 }

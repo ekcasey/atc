@@ -22,7 +22,7 @@ type SQLDB struct {
 }
 
 const buildColumns = "id, name, job_id, status, scheduled, engine, engine_metadata, start_time, end_time"
-const qualifiedBuildColumns = "b.id, b.name, b.job_id, b.status, b.scheduled, b.engine, b.engine_metadata, b.start_time, b.end_time, j.name as job_name, p.name as pipeline_name"
+const qualifiedBuildColumns = "b.id, b.name, b.job_id, b.status, b.scheduled, b.engine, b.engine_metadata, b.start_time, b.end_time, j.name as job_name, p.name as pipeline_name, t.name as team_name"
 
 func NewSQL(
 	logger lager.Logger,
@@ -665,6 +665,7 @@ func (db *SQLDB) GetAllBuilds() ([]Build, error) {
 		FROM builds b
 		LEFT OUTER JOIN jobs j ON b.job_id = j.id
 		LEFT OUTER JOIN pipelines p ON j.pipeline_id = p.id
+		LEFT OUTER JOIN teams t ON b.team_id = t.id
 		ORDER BY b.id DESC
 	`)
 	if err != nil {
@@ -693,6 +694,7 @@ func (db *SQLDB) GetAllStartedBuilds() ([]Build, error) {
 		FROM builds b
 		LEFT OUTER JOIN jobs j ON b.job_id = j.id
 		LEFT OUTER JOIN pipelines p ON j.pipeline_id = p.id
+		LEFT OUTER JOIN teams t ON b.team_id = t.id
 		WHERE b.status = 'started'
 	`)
 	if err != nil {
@@ -721,6 +723,7 @@ func (db *SQLDB) GetBuild(buildID int) (Build, bool, error) {
 		FROM builds b
 		LEFT OUTER JOIN jobs j ON b.job_id = j.id
 		LEFT OUTER JOIN pipelines p ON j.pipeline_id = p.id
+		LEFT OUTER JOIN teams t ON b.team_id = t.id
 		WHERE b.id = $1
 	`, buildID))
 }
@@ -927,7 +930,7 @@ func (db *SQLDB) GetBuildOutputVersionedResouces(buildID int) (SavedVersionedRes
 		WHERE b.id = $1 AND bo.explicit`)
 }
 
-func (db *SQLDB) CreateOneOffBuild() (Build, error) {
+func (db *SQLDB) CreateOneOffBuild(teamID int) (Build, error) {
 	tx, err := db.conn.Begin()
 	if err != nil {
 		return Build{}, err
@@ -936,10 +939,14 @@ func (db *SQLDB) CreateOneOffBuild() (Build, error) {
 	defer tx.Rollback()
 
 	build, _, err := scanBuild(tx.QueryRow(`
-		INSERT INTO builds (name, status)
-		VALUES (nextval('one_off_name'), 'pending')
-		RETURNING ` + buildColumns + `, null, null
-	`))
+		INSERT INTO builds (name, status, team_id)
+		VALUES (nextval('one_off_name'), 'pending', $1)
+		RETURNING `+buildColumns+`, null, null, (
+			SELECT name
+			FROM teams t
+			WHERE t.id = team_id
+		)
+	`, teamID))
 	if err != nil {
 		return Build{}, err
 	}
@@ -1670,11 +1677,11 @@ func scanBuild(row scannable) (Build, bool, error) {
 	var jobID sql.NullInt64
 	var status string
 	var scheduled bool
-	var engine, engineMetadata, jobName, pipelineName sql.NullString
+	var engine, engineMetadata, jobName, pipelineName, teamName sql.NullString
 	var startTime pq.NullTime
 	var endTime pq.NullTime
 
-	err := row.Scan(&id, &name, &jobID, &status, &scheduled, &engine, &engineMetadata, &startTime, &endTime, &jobName, &pipelineName)
+	err := row.Scan(&id, &name, &jobID, &status, &scheduled, &engine, &engineMetadata, &startTime, &endTime, &jobName, &pipelineName, &teamName)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return Build{}, false, nil
@@ -1694,6 +1701,8 @@ func scanBuild(row scannable) (Build, bool, error) {
 
 		StartTime: startTime.Time,
 		EndTime:   endTime.Time,
+
+		TeamName: teamName.String,
 	}
 
 	if jobID.Valid {

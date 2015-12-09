@@ -19,6 +19,7 @@ var _ = Describe("Keeping track of builds", func() {
 
 	var database db.DB
 	var pipelineDB db.PipelineDB
+	var team db.SavedTeam
 
 	BeforeEach(func() {
 		postgresRunner.Truncate()
@@ -33,7 +34,8 @@ var _ = Describe("Keeping track of builds", func() {
 
 		pipelineDBFactory := db.NewPipelineDBFactory(lagertest.NewTestLogger("test"), dbConn, bus, sqlDB)
 
-		team, err := sqlDB.SaveTeam(db.Team{Name: "some-team"})
+		var err error
+		team, err = sqlDB.SaveTeam(db.Team{Name: "some-team"})
 		Expect(err).NotTo(HaveOccurred())
 
 		sqlDB.SaveConfig(team.Name, "some-pipeline", atc.Config{}, db.ConfigVersion(1), db.PipelineUnpaused)
@@ -134,7 +136,7 @@ var _ = Describe("Keeping track of builds", func() {
 	})
 
 	It("can get (no) resources from a one-off build", func() {
-		oneOff, err := database.CreateOneOffBuild()
+		oneOff, err := database.CreateOneOffBuild(team.ID)
 		Expect(err).NotTo(HaveOccurred())
 
 		inputs, outputs, err := database.GetBuildResources(oneOff.ID)
@@ -145,12 +147,13 @@ var _ = Describe("Keeping track of builds", func() {
 	})
 
 	It("can create one-off builds with increasing names", func() {
-		oneOff, err := database.CreateOneOffBuild()
+		oneOff, err := database.CreateOneOffBuild(team.ID)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(oneOff.ID).NotTo(BeZero())
 		Expect(oneOff.JobName).To(BeZero())
 		Expect(oneOff.Name).To(Equal("1"))
 		Expect(oneOff.Status).To(Equal(db.StatusPending))
+		Expect(oneOff.TeamName).To(Equal(team.Name))
 
 		oneOffGot, found, err := database.GetBuild(oneOff.ID)
 		Expect(err).NotTo(HaveOccurred())
@@ -161,7 +164,7 @@ var _ = Describe("Keeping track of builds", func() {
 		Expect(err).NotTo(HaveOccurred())
 		Expect(jobBuild.Name).To(Equal("1"))
 
-		nextOneOff, err := database.CreateOneOffBuild()
+		nextOneOff, err := database.CreateOneOffBuild(team.ID)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(nextOneOff.ID).NotTo(BeZero())
 		Expect(nextOneOff.ID).NotTo(Equal(oneOff.ID))
@@ -180,13 +183,13 @@ var _ = Describe("Keeping track of builds", func() {
 		BeforeEach(func() {
 			var err error
 
-			build1, err = database.CreateOneOffBuild()
+			build1, err = database.CreateOneOffBuild(team.ID)
 			Expect(err).NotTo(HaveOccurred())
 
 			build2, err = pipelineDB.CreateJobBuild("some-job")
 			Expect(err).NotTo(HaveOccurred())
 
-			_, err = database.CreateOneOffBuild()
+			_, err = database.CreateOneOffBuild(team.ID)
 			Expect(err).NotTo(HaveOccurred())
 
 			started, err := database.StartBuild(build1.ID, "some-engine", "so-meta")

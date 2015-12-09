@@ -21,6 +21,8 @@ var _ = Describe("SQL DB", func() {
 
 	var database db.DB
 
+	var team db.SavedTeam
+
 	BeforeEach(func() {
 		postgresRunner.Truncate()
 
@@ -31,6 +33,10 @@ var _ = Describe("SQL DB", func() {
 		bus := db.NewNotificationsBus(listener, dbConn)
 
 		database = db.NewSQL(lagertest.NewTestLogger("test"), dbConn, bus)
+
+		var err error
+		team, err = database.SaveTeam(db.Team{Name: "some-team"})
+		Expect(err).NotTo(HaveOccurred())
 	})
 
 	AfterEach(func() {
@@ -170,7 +176,7 @@ var _ = Describe("SQL DB", func() {
 	})
 
 	It("saves and propagates events correctly", func() {
-		build, err := database.CreateOneOffBuild()
+		build, err := database.CreateOneOffBuild(team.ID)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(build.Name).To(Equal("1"))
 
@@ -248,7 +254,7 @@ var _ = Describe("SQL DB", func() {
 	})
 
 	It("saves and emits status events", func() {
-		build, err := database.CreateOneOffBuild()
+		build, err := database.CreateOneOffBuild(team.ID)
 		Expect(err).NotTo(HaveOccurred())
 		Expect(build.Name).To(Equal("1"))
 

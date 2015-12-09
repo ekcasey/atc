@@ -38,7 +38,7 @@ type DB interface {
 	CreatePipe(pipeGUID string, url string) error
 	GetPipe(pipeGUID string) (Pipe, error)
 
-	CreateOneOffBuild() (Build, error)
+	CreateOneOffBuild(teamID int) (Build, error)
 
 	LeaseBuildTracking(buildID int, interval time.Duration) (Lease, bool, error)
 	LeaseBuildScheduling(buildID int, interval time.Duration) (Lease, bool, error)
