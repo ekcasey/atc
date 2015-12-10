@@ -1089,6 +1089,7 @@ var _ = Describe("PipelineDB", func() {
 
 				savedResource, err := pipelineDB.GetResource("some-resource")
 				Expect(err).NotTo(HaveOccurred())
+				Expect(savedResource.TeamName).To(Equal(team.Name))
 
 				savedVR, found, err := pipelineDB.GetLatestVersionedResource(savedResource)
 				Expect(err).NotTo(HaveOccurred())
@@ -1634,6 +1635,17 @@ var _ = Describe("PipelineDB", func() {
 					{VersionedResource: vr2},
 				}))
 
+			})
+		})
+
+		Context("getting job config", func() {
+			job := "some-job"
+
+			It("has the team name in the config", func() {
+				job, err := pipelineDB.GetJob(job)
+				Expect(err).NotTo(HaveOccurred())
+
+				Expect(job.TeamName).To(Equal("some-team"))
 			})
 		})
 

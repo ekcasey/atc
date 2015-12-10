@@ -57,6 +57,7 @@ type SavedResource struct {
 	CheckError   error
 	Paused       bool
 	PipelineName string
+	TeamName     string
 	Resource
 }
 

@@ -8,5 +8,6 @@ type SavedJob struct {
 	ID           int
 	Paused       bool
 	PipelineName string
+	TeamName     string
 	Job
 }

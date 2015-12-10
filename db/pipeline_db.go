@@ -437,6 +437,7 @@ func (pdb *pipelineDB) getResource(tx *sql.Tx, name string) (SavedResource, erro
 	}
 
 	resource.PipelineName = pdb.Name
+	resource.TeamName = pdb.TeamName
 
 	return resource, nil
 }
@@ -1902,6 +1903,7 @@ func (pdb *pipelineDB) getJob(tx *sql.Tx, name string) (SavedJob, error) {
 	}
 
 	job.PipelineName = pdb.Name
+	job.TeamName = pdb.TeamName
 
 	return job, nil
 }
