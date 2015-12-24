@@ -570,6 +570,7 @@ func (cmd *ATCCommand) constructAPIHandler(
 		sqlDB, // volumeserver.VolumesDB
 		sqlDB, // pipes.PipeDB
 		sqlDB, // db.PipelinesDB
+		sqlDB, // teamserver.TeamDB
 
 		config.ValidateConfig,
 		cmd.PeerURL.String(),
