@@ -150,6 +150,10 @@ func (cmd *ATCCommand) Execute(args []string) error {
 		return err
 	}
 
+	jwtReader := auth.JWTReader{
+		PublicKey: &signingKey.PublicKey,
+	}
+
 	err = cmd.configureOAuthProviders(logger, sqlDB)
 	if err != nil {
 		return err
@@ -172,6 +176,7 @@ func (cmd *ATCCommand) Execute(args []string) error {
 		reconfigurableSink,
 		sqlDB,
 		authValidator,
+		jwtReader,
 		providerFactory,
 		signingKey,
 		pipelineDBFactory,
@@ -197,6 +202,7 @@ func (cmd *ATCCommand) Execute(args []string) error {
 	webHandler, err := cmd.constructWebHandler(
 		logger,
 		authValidator,
+		jwtReader,
 		pipelineDBFactory,
 	)
 	if err != nil {
@@ -539,6 +545,7 @@ func (cmd *ATCCommand) constructAPIHandler(
 	reconfigurableSink *lager.ReconfigurableSink,
 	sqlDB *db.SQLDB,
 	authValidator auth.Validator,
+	userContextReader auth.UserContextReader,
 	providerFactory provider.OAuthFactory,
 	signingKey *rsa.PrivateKey,
 	pipelineDBFactory db.PipelineDBFactory,
@@ -548,7 +555,7 @@ func (cmd *ATCCommand) constructAPIHandler(
 	radarSchedulerFactory pipelines.RadarSchedulerFactory,
 ) (http.Handler, error) {
 	apiWrapper := wrappa.MultiWrappa{
-		wrappa.NewAPIAuthWrappa(authValidator),
+		wrappa.NewAPIAuthWrappa(authValidator, userContextReader),
 		wrappa.NewAPIMetricsWrappa(logger),
 	}
 
@@ -590,10 +597,11 @@ func (cmd *ATCCommand) constructAPIHandler(
 func (cmd *ATCCommand) constructWebHandler(
 	logger lager.Logger,
 	authValidator auth.Validator,
+	userContextReader auth.UserContextReader,
 	pipelineDBFactory db.PipelineDBFactory,
 ) (http.Handler, error) {
 	webWrapper := wrappa.MultiWrappa{
-		wrappa.NewWebAuthWrappa(cmd.PubliclyViewable, authValidator),
+		wrappa.NewWebAuthWrappa(cmd.PubliclyViewable, authValidator, userContextReader),
 		wrappa.NewWebMetricsWrappa(logger),
 	}
 
