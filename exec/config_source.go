@@ -3,12 +3,9 @@ package exec
 import (
 	"fmt"
 	"io/ioutil"
-	"path/filepath"
 	"strings"
 
 	"github.com/concourse/atc"
-	"github.com/mitchellh/mapstructure"
-	"gopkg.in/yaml.v2"
 )
 
 //go:generate counterfeiter . TaskConfigSource
@@ -77,47 +74,7 @@ func (configSource FileConfigSource) FetchConfig(repo *SourceRepository) (atc.Ta
 		return atc.TaskConfig{}, err
 	}
 
-	return configSource.decodeConfig(streamedFile)
-}
-
-func (configSource FileConfigSource) decodeConfig(rawFile []byte) (atc.TaskConfig, error) {
-	var untypedInput map[string]interface{}
-
-	if err := yaml.Unmarshal(rawFile, &untypedInput); err != nil {
-		return atc.TaskConfig{}, err
-	}
-
-	var config atc.TaskConfig
-	var metadata mapstructure.Metadata
-
-	msConfig := &mapstructure.DecoderConfig{
-		Metadata: &metadata,
-		Result:   &config,
-	}
-
-	decoder, err := mapstructure.NewDecoder(msConfig)
-	if err != nil {
-		return atc.TaskConfig{}, err
-	}
-
-	if err := decoder.Decode(untypedInput); err != nil {
-		return atc.TaskConfig{}, err
-	}
-
-	if len(metadata.Unused) > 0 {
-		keys := strings.Join(metadata.Unused, ", ")
-		basename := filepath.Base(configSource.Path)
-		message := fmt.Errorf("found extra keys in the %s task configuration: %s", basename, keys)
-
-		return atc.TaskConfig{}, message
-	}
-
-	err = config.Validate()
-	if err != nil {
-		return atc.TaskConfig{}, err
-	}
-
-	return config, nil
+	return atc.DecodeTaskYaml(streamedFile, configSource.Path)
 }
 
 // MergedConfigSource is used to join two config sources together.

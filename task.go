@@ -4,6 +4,10 @@ import (
 	"fmt"
 	"path/filepath"
 	"strings"
+
+	"gopkg.in/yaml.v2"
+
+	"github.com/mitchellh/mapstructure"
 )
 
 type TaskConfig struct {
@@ -34,6 +38,45 @@ type TaskImageConfig struct {
 	Source Source `yaml:"source" json:"source" mapstructure:"source"`
 }
 
+func DecodeTaskYaml(rawFile []byte, path string) (TaskConfig, error) {
+	var untypedInput map[string]interface{}
+
+	if err := yaml.Unmarshal(rawFile, &untypedInput); err != nil {
+		return TaskConfig{}, err
+	}
+
+	var config TaskConfig
+	var metadata mapstructure.Metadata
+
+	msConfig := &mapstructure.DecoderConfig{
+		Metadata: &metadata,
+		Result:   &config,
+	}
+
+	decoder, err := mapstructure.NewDecoder(msConfig)
+	if err != nil {
+		return TaskConfig{}, err
+	}
+
+	if err := decoder.Decode(untypedInput); err != nil {
+		return TaskConfig{}, err
+	}
+
+	if len(metadata.Unused) > 0 {
+		keys := strings.Join(metadata.Unused, ", ")
+		basename := filepath.Base(path)
+		message := fmt.Errorf("found extra keys in the %s task configuration: %s", basename, keys)
+
+		return TaskConfig{}, message
+	}
+
+	err = config.Validate()
+	if err != nil {
+		return TaskConfig{}, err
+	}
+
+	return config, nil
+}
 func (config TaskConfig) Merge(other TaskConfig) TaskConfig {
 	if other.Platform != "" {
 		config.Platform = other.Platform
