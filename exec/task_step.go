@@ -192,89 +192,13 @@ func (step *TaskStep) Run(signals <-chan os.Signal, ready chan<- struct{}) error
 			workerSpec.ResourceType = config.ImageResource.Type
 		}
 
+		var inputsToStream []inputPair
 		compatibleWorkers, err := step.workerPool.AllSatisfying(workerSpec)
 		if err != nil {
 			return err
 		}
 
-		chosenWorker, inputMounts, inputsToStream, err := step.chooseWorkerWithMostVolumes(compatibleWorkers, config.Inputs)
-		if err != nil {
-			return err
-		}
-
-		outputMounts := []worker.VolumeMount{}
-		for _, output := range config.Outputs {
-			path := artifactsPath(output, step.artifactsRoot)
-
-			baggageclaimClient, found := chosenWorker.VolumeManager()
-			if !found {
-				break
-			}
-
-			volume, volErr := baggageclaimClient.CreateVolume(step.logger, baggageclaim.VolumeSpec{
-				Properties: baggageclaim.VolumeProperties{},
-				TTL:        5 * time.Minute,
-				Privileged: bool(step.privileged),
-			})
-			if volErr != nil {
-				return volErr
-			}
-
-			outputMounts = append(outputMounts, worker.VolumeMount{
-				Volume:    volume,
-				MountPath: path,
-			})
-		}
-
-		containerSpec := worker.TaskContainerSpec{
-			Platform:   config.Platform,
-			Tags:       step.tags,
-			Privileged: bool(step.privileged),
-			Inputs:     inputMounts,
-			Outputs:    outputMounts,
-		}
-
-		var imageResource resource.Resource
-
-		if config.ImageResource != nil {
-			imageResource, err = step.getContainerImage(signals, chosenWorker, config)
-			if err != nil {
-				return err
-			}
-
-			imageVolume, found, err := imageResource.CacheVolume()
-			if err != nil {
-				return err
-			}
-
-			if !found {
-				return NewErrImageGetDidNotProduceVolume(string(step.sourceName))
-			}
-
-			containerSpec.ImageVolume = imageVolume
-		} else {
-			containerSpec.Image = config.Image
-		}
-
-		step.container, err = chosenWorker.CreateContainer(
-			step.logger.Session("created-container"),
-			runContainerID,
-			step.metadata,
-			containerSpec,
-		)
-		if imageResource != nil {
-			imageResource.Release(0)
-		}
-		for _, mount := range inputMounts {
-			// stop heartbeating ourselves now that container has picked up the
-			// volumes
-			mount.Volume.Release(0)
-		}
-		for _, mount := range outputMounts {
-			// stop heartbeating ourselves now that container has picked up the
-			// volumes
-			mount.Volume.Release(0)
-		}
+		step.container, inputsToStream, err = step.createContainer(compatibleWorkers, config, signals)
 		if err != nil {
 			return err
 		}
@@ -354,6 +278,109 @@ func (step *TaskStep) Run(signals <-chan os.Signal, ready chan<- struct{}) error
 	case err := <-waitErr:
 		return err
 	}
+}
+
+func (step *TaskStep) createContainer(compatibleWorkers []worker.Worker, config atc.TaskConfig, signals <-chan os.Signal) (worker.Container, []inputPair, error) {
+	chosenWorker, inputMounts, inputsToStream, err := step.chooseWorkerWithMostVolumes(compatibleWorkers, config.Inputs)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	outputMounts := []worker.VolumeMount{}
+	for _, output := range config.Outputs {
+		path := artifactsPath(output, step.artifactsRoot)
+
+		baggageclaimClient, found := chosenWorker.VolumeManager()
+		if !found {
+			break
+		}
+
+		ourVolume, volErr := baggageclaimClient.CreateVolume(step.logger, baggageclaim.VolumeSpec{
+			Properties: baggageclaim.VolumeProperties{},
+			TTL:        5 * time.Minute,
+			Privileged: bool(step.privileged),
+		})
+		if volErr != nil {
+			return nil, nil, volErr
+		}
+
+		outputMounts = append(outputMounts, worker.VolumeMount{
+			Volume:    ourVolume,
+			MountPath: path,
+		})
+	}
+
+	containerSpec := worker.TaskContainerSpec{
+		Platform:   config.Platform,
+		Tags:       step.tags,
+		Privileged: bool(step.privileged),
+		Inputs:     inputMounts,
+		Outputs:    outputMounts,
+	}
+
+	var imageResource resource.Resource
+
+	if config.ImageResource != nil {
+		imageResource, err = step.getContainerImage(signals, chosenWorker, config)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		imageVolume, found, err := imageResource.CacheVolume()
+		if err != nil {
+			return nil, nil, err
+		}
+
+		if !found {
+			return nil, nil, NewErrImageGetDidNotProduceVolume(string(step.sourceName))
+		}
+
+		containerSpec.ImageVolume = imageVolume
+	} else {
+		containerSpec.Image = config.Image
+	}
+
+	runContainerID := step.containerID
+	runContainerID.Stage = db.ContainerStageRun
+	container, err := chosenWorker.CreateContainer(
+		step.logger.Session("created-container"),
+		runContainerID,
+		step.metadata,
+		containerSpec,
+	)
+
+	if err != nil {
+		step.logger.Info(err.Error())
+		newCompatibleWorkers := make([]worker.Worker, 0, len(compatibleWorkers)-1)
+		for _, worker := range compatibleWorkers {
+			if worker != chosenWorker {
+				newCompatibleWorkers = append(newCompatibleWorkers, worker)
+			}
+		}
+
+		if len(newCompatibleWorkers) == 0 {
+			return nil, nil, errors.New("Failed to create container on all compatible workers")
+		}
+		return step.createContainer(newCompatibleWorkers, config, signals)
+	}
+
+	if imageResource != nil {
+		imageResource.Release(0)
+	}
+
+	for _, mount := range inputMounts {
+		// stop heartbeating ourselves now that container has picked up the
+		// volumes
+		mount.Volume.Release(0)
+	}
+
+	for _, mount := range outputMounts {
+		// stop heartbeating ourselves now that container has picked up the
+		// volumes
+		mount.Volume.Release(0)
+	}
+
+	return container, inputsToStream, nil
 }
 
 func (step *TaskStep) registerSource(config atc.TaskConfig) {
