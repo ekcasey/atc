@@ -338,39 +338,37 @@ func (step *TaskStep) createContainer(compatibleWorkers []worker.Worker, config 
 		step.resourceTypes,
 	)
 
-	if err != nil {
-		if _, ok := err.(atc.WorkerNotCreatedError); ok {
-			step.logger.Info(err.Error())
-			var newCompatibleWorkers []worker.Worker
-			for _, worker := range compatibleWorkers {
-				if worker != chosenWorker {
-					newCompatibleWorkers = append(newCompatibleWorkers, worker)
-				}
-			}
-
-			if len(newCompatibleWorkers) == 0 {
-				return nil, []inputPair{}, errors.New("failed to create container on all compatible workers")
-			}
-
-			return step.createContainer(newCompatibleWorkers, config, signals)
-		} else {
-			return nil, []inputPair{}, err
+	defer func() {
+		for _, mount := range inputMounts {
+			// stop heartbeating ourselves now that container has picked up the
+			// volumes
+			mount.Volume.Release(nil)
 		}
+
+		for _, mount := range outputMounts {
+			// stop heartbeating ourselves now that container has picked up the
+			// volumes
+			mount.Volume.Release(nil)
+		}
+	}()
+
+	if _, ok := err.(atc.WorkerNotCreatedError); ok {
+		step.logger.Info(err.Error())
+		var newCompatibleWorkers []worker.Worker
+		for _, worker := range compatibleWorkers {
+			if worker != chosenWorker {
+				newCompatibleWorkers = append(newCompatibleWorkers, worker)
+			}
+		}
+
+		if len(newCompatibleWorkers) == 0 {
+			return nil, []inputPair{}, errors.New("failed to create container on all compatible workers")
+		}
+
+		return step.createContainer(newCompatibleWorkers, config, signals)
 	}
 
-	for _, mount := range inputMounts {
-		// stop heartbeating ourselves now that container has picked up the
-		// volumes
-		mount.Volume.Release(nil)
-	}
-
-	for _, mount := range outputMounts {
-		// stop heartbeating ourselves now that container has picked up the
-		// volumes
-		mount.Volume.Release(nil)
-	}
-
-	return container, inputsToStream, nil
+	return container, inputsToStream, err
 }
 
 func (step *TaskStep) registerSource(config atc.TaskConfig) {
