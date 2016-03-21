@@ -1563,7 +1563,6 @@ var _ = Describe("GardenFactory", func() {
 								var rootVolume *bfakes.FakeVolume
 								var inputVolume *bfakes.FakeVolume
 								var inputVolume2 *bfakes.FakeVolume
-								var inputVolume3 *bfakes.FakeVolume
 								var otherInputVolume *bfakes.FakeVolume
 								var fakeContainer *wfakes.FakeContainer
 								var fakeProcess *gfakes.FakeProcess
@@ -1576,10 +1575,7 @@ var _ = Describe("GardenFactory", func() {
 									inputVolume.HandleReturns("input-volume")
 
 									inputVolume2 = new(bfakes.FakeVolume)
-									inputVolume2.HandleReturns("input-volume")
-
-									inputVolume3 = new(bfakes.FakeVolume)
-									inputVolume3.HandleReturns("input-volume")
+									inputVolume2.HandleReturns("input-volume-2")
 
 									otherInputVolume = new(bfakes.FakeVolume)
 									otherInputVolume.HandleReturns("other-input-volume")
@@ -1663,6 +1659,12 @@ var _ = Describe("GardenFactory", func() {
 										Expect(taskDelegate.FailedCallCount()).To(Equal(1))
 										Expect(taskDelegate.FailedArgsForCall(0)).To(Equal(disaster))
 									})
+
+									It("cleans up all volumes", func() {
+										Expect(inputVolume.ReleaseCallCount()).To(Equal(1))
+										Expect(inputVolume2.ReleaseCallCount()).To(Equal(1))
+										Expect(otherInputVolume.ReleaseCallCount()).To(Equal(1))
+									})
 								})
 
 								Context("when creating the container fails on all workers", func() {
@@ -1678,6 +1680,12 @@ var _ = Describe("GardenFactory", func() {
 										Eventually(process.Wait()).Should(Receive(MatchError("failed to create container on all compatible workers")))
 										Expect(taskDelegate.FailedCallCount()).To(Equal(1))
 										Expect(taskDelegate.FailedArgsForCall(0)).To(MatchError("failed to create container on all compatible workers"))
+									})
+
+									It("cleans up all volumes", func() {
+										Expect(inputVolume.ReleaseCallCount()).To(Equal(2))
+										Expect(inputVolume2.ReleaseCallCount()).To(Equal(1))
+										Expect(otherInputVolume.ReleaseCallCount()).To(Equal(1))
 									})
 								})
 							})
