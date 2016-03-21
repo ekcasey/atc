@@ -1464,20 +1464,40 @@ var _ = Describe("GardenFactory", func() {
 					})
 
 					Context("when creating the container fails", func() {
-						disaster := errors.New("nope")
 
-						BeforeEach(func() {
-							fakeWorker.CreateContainerReturns(nil, disaster)
+						Context("on an WorkerNotCreatedError error", func() {
+							BeforeEach(func() {
+								fakeWorker.CreateContainerReturns(nil, atc.WorkerNotCreatedError{errors.New("nope")})
+							})
+
+							It("exits with the error", func() {
+								Eventually(process.Wait()).Should(Receive(MatchError("failed to create container on all compatible workers")))
+							})
+
+							It("invokes the delegate's Failed callback", func() {
+								process.Wait()
+								Expect(taskDelegate.FailedCallCount()).To(Equal(1))
+								Expect(taskDelegate.FailedArgsForCall(0)).To(MatchError("failed to create container on all compatible workers"))
+							})
 						})
 
-						It("exits with the error", func() {
-							Eventually(process.Wait()).Should(Receive(Equal(disaster)))
-						})
+						Context("on other errors", func() {
 
-						It("invokes the delegate's Failed callback", func() {
-							Eventually(process.Wait()).Should(Receive(Equal(disaster)))
-							Expect(taskDelegate.FailedCallCount()).To(Equal(1))
-							Expect(taskDelegate.FailedArgsForCall(0)).To(Equal(disaster))
+							disaster := errors.New("nope")
+
+							BeforeEach(func() {
+								fakeWorker.CreateContainerReturns(nil, disaster)
+							})
+
+							It("exits with the error", func() {
+								Eventually(process.Wait()).Should(Receive(Equal(disaster)))
+							})
+
+							It("invokes the delegate's Failed callback", func() {
+								process.Wait()
+								Expect(taskDelegate.FailedCallCount()).To(Equal(1))
+								Expect(taskDelegate.FailedArgsForCall(0)).To(Equal(disaster))
+							})
 						})
 					})
 				})
@@ -1534,6 +1554,8 @@ var _ = Describe("GardenFactory", func() {
 								var inputVolume2 *bfakes.FakeVolume
 								var inputVolume3 *bfakes.FakeVolume
 								var otherInputVolume *bfakes.FakeVolume
+								var fakeContainer *wfakes.FakeContainer
+								var fakeProcess *gfakes.FakeProcess
 
 								BeforeEach(func() {
 									rootVolume = new(bfakes.FakeVolume)
@@ -1559,7 +1581,7 @@ var _ = Describe("GardenFactory", func() {
 										} else if w == fakeWorker2 {
 											return inputVolume2, true, nil
 										} else if w == fakeWorker3 {
-											return inputVolume3, true, nil
+											return nil, false, nil
 										} else {
 											return nil, false, fmt.Errorf("unexpected worker: %#v\n", w)
 										}
@@ -1576,8 +1598,17 @@ var _ = Describe("GardenFactory", func() {
 										}
 									}
 
+									fakeContainer = new(wfakes.FakeContainer)
+									fakeContainer.HandleReturns("some-handle")
+
+									fakeProcess = new(gfakes.FakeProcess)
+									fakeProcess.IDReturns("process-id")
+									fakeContainer.RunReturns(fakeProcess, nil)
+									fakeContainer.StreamInReturns(nil)
+
 									fakeWorker.CreateContainerReturns(nil, errors.New("fall out of method here"))
-									fakeWorker2.CreateContainerReturns(nil, errors.New("fall out of method here"))
+									fakeWorker2.CreateContainerReturns(fakeContainer, nil)
+									fakeWorker3.CreateContainerReturns(nil, errors.New("fall out of method here"))
 								})
 
 								It("picks the worker that has the most", func() {
@@ -1588,10 +1619,55 @@ var _ = Describe("GardenFactory", func() {
 
 								It("releases the volumes on the unused workers", func() {
 									Expect(inputVolume.ReleaseCallCount()).To(Equal(1))
-									Expect(inputVolume3.ReleaseCallCount()).To(Equal(1))
 
 									Expect(inputVolume2.ReleaseCallCount()).To(Equal(1))
 									Expect(otherInputVolume.ReleaseCallCount()).To(Equal(1))
+								})
+
+								Context("when creating the container on worker with the most volumes fails with WorkerNotCreatedError error", func() {
+									disaster := atc.WorkerNotCreatedError{errors.New("nope")}
+
+									BeforeEach(func() {
+										fakeWorker2.CreateContainerReturns(nil, disaster)
+										fakeWorker.CreateContainerReturns(fakeContainer, nil)
+									})
+
+									It("uses the worker with the second most volumes", func() {
+										Expect(fakeWorker.CreateContainerCallCount()).To(Equal(1))
+										Expect(fakeWorker2.CreateContainerCallCount()).To(Equal(1))
+										Expect(fakeWorker3.CreateContainerCallCount()).To(Equal(0))
+									})
+								})
+
+								Context("when creating the container on worker with the most volumes fails with other error", func() {
+									disaster := errors.New("nope")
+
+									BeforeEach(func() {
+										fakeWorker2.CreateContainerReturns(nil, disaster)
+										fakeWorker.CreateContainerReturns(fakeContainer, nil)
+									})
+
+									It("exits and invokes the delegate's Failed callback", func() {
+										Eventually(process.Wait()).Should(Receive(Equal(disaster)))
+										Expect(taskDelegate.FailedCallCount()).To(Equal(1))
+										Expect(taskDelegate.FailedArgsForCall(0)).To(Equal(disaster))
+									})
+								})
+
+								Context("when creating the container fails on all workers", func() {
+									disaster := atc.WorkerNotCreatedError{errors.New("nope")}
+
+									BeforeEach(func() {
+										fakeWorker.CreateContainerReturns(nil, disaster)
+										fakeWorker2.CreateContainerReturns(nil, disaster)
+										fakeWorker3.CreateContainerReturns(nil, disaster)
+									})
+
+									It("exits and invokes the delegate's Failed callback", func() {
+										Eventually(process.Wait()).Should(Receive(MatchError("failed to create container on all compatible workers")))
+										Expect(taskDelegate.FailedCallCount()).To(Equal(1))
+										Expect(taskDelegate.FailedArgsForCall(0)).To(MatchError("failed to create container on all compatible workers"))
+									})
 								})
 							})
 						})
