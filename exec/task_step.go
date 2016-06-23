@@ -313,7 +313,7 @@ func (step *TaskStep) createContainer(compatibleWorkers []worker.Worker, config 
 	for _, output := range config.Outputs {
 		path := artifactsPath(output, step.artifactsRoot)
 
-		outVolume, err := chosenWorker.CreateVolume(
+		outVolume, volErr := chosenWorker.CreateVolume(
 			step.logger,
 			worker.VolumeSpec{
 				Strategy:   worker.OutputStrategy{Name: output.Name},
@@ -321,12 +321,12 @@ func (step *TaskStep) createContainer(compatibleWorkers []worker.Worker, config 
 				TTL:        worker.VolumeTTL,
 			},
 		)
-		if err == worker.ErrNoVolumeManager {
+		if volErr == worker.ErrNoVolumeManager {
 			break
 		}
 
-		if err != nil {
-			return nil, []inputPair{}, err
+		if volErr != nil {
+			return nil, []inputPair{}, volErr
 		}
 
 		outputMounts = append(outputMounts, worker.VolumeMount{
@@ -434,16 +434,34 @@ func (step *TaskStep) createContainer(compatibleWorkers []worker.Worker, config 
 		step.resourceTypes,
 	)
 
-	for _, mount := range inputMounts {
-		// stop heartbeating ourselves now that container has picked up the
-		// volumes
-		mount.Volume.Release(nil)
-	}
+	defer func() {
+		for _, mount := range inputMounts {
+			// stop heartbeating ourselves now that container has picked up the
+			// volumes
+			mount.Volume.Release(nil)
+		}
 
-	for _, mount := range outputMounts {
-		// stop heartbeating ourselves now that container has picked up the
-		// volumes
-		mount.Volume.Release(nil)
+		for _, mount := range outputMounts {
+			// stop heartbeating ourselves now that container has picked up the
+			// volumes
+			mount.Volume.Release(nil)
+		}
+	}()
+
+	if err != nil && strings.Contains(err.Error(), "worker already has the maximum number of active containers") {
+		step.logger.Info(err.Error())
+		var newCompatibleWorkers []worker.Worker
+		for _, worker := range compatibleWorkers {
+			if worker != chosenWorker {
+				newCompatibleWorkers = append(newCompatibleWorkers, worker)
+			}
+		}
+
+		if len(newCompatibleWorkers) == 0 {
+			return nil, []inputPair{}, errors.New("failed to create container on all compatible workers")
+		}
+
+		return step.createContainer(newCompatibleWorkers, config, signals)
 	}
 
 	return container, inputsToStream, err
