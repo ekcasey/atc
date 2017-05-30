@@ -11,6 +11,7 @@ import (
 	"code.cloudfoundry.org/lager"
 	"github.com/concourse/atc"
 	"github.com/concourse/atc/dbng"
+	"strings"
 )
 
 //go:generate counterfeiter . WorkerProvider
@@ -147,50 +148,90 @@ func (pool *pool) FindOrCreateBuildContainer(
 		return nil, err
 	}
 
-	if !found {
-		compatibleWorkers, err := pool.AllSatisfying(logger, spec.WorkerSpec(), resourceTypes)
+	if found {
+		return worker.FindOrCreateBuildContainer(
+			logger,
+			signals,
+			delegate,
+			buildID,
+			planID,
+			metadata,
+			spec,
+			resourceTypes,
+		)
+	}
+
+
+	compatibleWorkers, err := pool.AllSatisfying(logger, spec.WorkerSpec(), resourceTypes)
+	if err != nil {
+		return nil, err
+	}
+
+	workersByCount := map[int][]Worker{}
+	var highestCount int
+	for _, w := range compatibleWorkers {
+		candidateInputCount := 0
+
+		for _, inputSource := range spec.Inputs {
+			_, found, err := inputSource.Source().VolumeOn(w)
+			if err != nil {
+				return nil, err
+			}
+
+			if found {
+				candidateInputCount++
+			}
+		}
+
+		workersByCount[candidateInputCount] = append(workersByCount[candidateInputCount], w)
+
+		if candidateInputCount >= highestCount {
+			highestCount = candidateInputCount
+		}
+	}
+
+	workers := workersByCount[highestCount]
+
+	return pool.findWorkerNotRunningVTXTask(workers,logger, signals, delegate,
+		buildID, planID, metadata, spec, resourceTypes)
+}
+
+
+func (pool *pool) findWorkerNotRunningVTXTask(
+	workers []Worker,
+	logger lager.Logger,
+	signals <-chan os.Signal,
+	delegate ImageFetchingDelegate,
+	buildID int,
+	planID atc.PlanID,
+	metadata dbng.ContainerMetadata,
+	spec ContainerSpec,
+	resourceTypes atc.VersionedResourceTypes) (Container, error) {
+
+	for _, worker := range workers {
+		container, err := worker.FindOrCreateBuildContainer(
+			logger,
+			signals,
+			delegate,
+			buildID,
+			planID,
+			metadata,
+			spec,
+			resourceTypes,
+		)
+
+		if err != nil && strings.Contains(err.Error(), "worker already has the maximum number of active containers") {
+			continue
+		}
+
 		if err != nil {
 			return nil, err
 		}
 
-		workersByCount := map[int][]Worker{}
-		var highestCount int
-		for _, w := range compatibleWorkers {
-			candidateInputCount := 0
-
-			for _, inputSource := range spec.Inputs {
-				_, found, err := inputSource.Source().VolumeOn(w)
-				if err != nil {
-					return nil, err
-				}
-
-				if found {
-					candidateInputCount++
-				}
-			}
-
-			workersByCount[candidateInputCount] = append(workersByCount[candidateInputCount], w)
-
-			if candidateInputCount >= highestCount {
-				highestCount = candidateInputCount
-			}
-		}
-
-		workers := workersByCount[highestCount]
-
-		worker = workers[pool.rand.Intn(len(workers))]
+		return container, nil
 	}
 
-	return worker.FindOrCreateBuildContainer(
-		logger,
-		signals,
-		delegate,
-		buildID,
-		planID,
-		metadata,
-		spec,
-		resourceTypes,
-	)
+	return nil, errors.New("failed to create container on all compatible workers")
 }
 
 func (pool *pool) CreateResourceGetContainer(
